@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Codex PAT</title>
+  <link rel="stylesheet" href="/v0/resource/plugins/codex-pat/assets/app.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="title-row">
+        <h1>Codex PAT</h1>
+        <span class="state state-locked" id="connection-state">Locked</span>
+      </div>
+      <button class="icon-button" id="refresh-all" type="button" title="Refresh accounts" aria-label="Refresh accounts">
+        <img src="/v0/resource/plugins/codex-pat/assets/icons/refresh-cw.svg" alt="">
+      </button>
+    </header>
+
+    <form class="import-bar" id="import-form" autocomplete="off">
+      <label class="field">
+        <span>Management key</span>
+        <input id="management-key" name="management-key" type="password" autocomplete="off" required>
+      </label>
+      <label class="field field-token">
+        <span>Personal access token</span>
+        <input id="pat" name="pat" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+      </label>
+      <button class="primary-button" id="import-button" type="submit">
+        <img src="/v0/resource/plugins/codex-pat/assets/icons/key-round.svg" alt="">
+        <span>Import PAT</span>
+      </button>
+    </form>
+
+    <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+
+    <section class="accounts" aria-labelledby="accounts-heading">
+      <div class="section-heading">
+        <h2 id="accounts-heading">Accounts</h2>
+        <span class="count" id="account-count">0</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Account</th>
+              <th scope="col">Plan</th>
+              <th scope="col">Validated</th>
+              <th scope="col">State</th>
+              <th class="actions-heading" scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="account-rows">
+            <tr class="empty-row">
+              <td colspan="5">Account data is locked.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/v0/resource/plugins/codex-pat/assets/app.js" defer></script>
+</body>
+</html>

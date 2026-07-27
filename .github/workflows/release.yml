@@ -1,0 +1,270 @@
+name: Verify or publish native release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Dotted plugin version without the v prefix
+        required: true
+        default: 0.1.4
+        type: string
+      mode:
+        description: Verify artifacts or publish the GitHub Release
+        required: true
+        default: verify
+        type: choice
+        options:
+          - verify
+          - publish
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    name: ${{ matrix.goos }}/${{ matrix.goarch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            runner: ubuntu-24.04
+            cpa_asset: CLIProxyAPI_7.2.102_linux_amd64.tar.gz
+          - goos: linux
+            goarch: arm64
+            runner: ubuntu-24.04-arm
+            cpa_asset: CLIProxyAPI_7.2.102_linux_aarch64.tar.gz
+          - goos: darwin
+            goarch: arm64
+            runner: macos-15
+            cpa_asset: CLIProxyAPI_7.2.102_darwin_aarch64.tar.gz
+          - goos: windows
+            goarch: amd64
+            runner: windows-2025
+            cpa_asset: CLIProxyAPI_7.2.102_windows_amd64.zip
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ inputs.version }}
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      CGO_ENABLED: "1"
+      CPA_VERSION: v7.2.102
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.4
+          cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Expose MinGW toolchain
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-Content $env:GITHUB_PATH 'C:\msys64\mingw64\bin'
+
+      - name: Validate version and source consistency
+        shell: bash
+        run: |
+          python scripts/release.py validate-version "${VERSION}"
+          python -c 'import os, pathlib, re, sys; text=pathlib.Path("Makefile").read_text(); match=re.search(r"^VERSION \?= (\S+)$", text, re.M); sys.exit(0 if match and match.group(1) == os.environ["VERSION"] else "workflow version does not match Makefile")'
+
+      - name: Native format, unit, release, vet, and module checks
+        shell: bash
+        run: |
+          go fmt ./...
+          git diff --exit-code
+          go test ./...
+          python -m unittest scripts/release_test.py
+          go vet ./...
+          go mod verify
+
+      - name: Build Linux release library in manylinux2014
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          OUTPUT="dist/codex-pat-v${VERSION}.so" GOARCH="${GOARCH}" VERSION="${VERSION}" bash scripts/build-manylinux.sh
+
+      - name: Build macOS release library
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p dist
+          go build -trimpath -buildvcs=false -buildmode=c-shared -ldflags "-s -w -X main.version=${VERSION}" -o "dist/codex-pat-v${VERSION}.dylib" ./cmd/codex-pat
+          chmod 0755 "dist/codex-pat-v${VERSION}.dylib"
+
+      - name: Build Windows release library
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          go build -trimpath -buildvcs=false -buildmode=c-shared -ldflags "-s -w -X main.version=${VERSION}" -o dist/codex_pat.dll ./cmd/codex-pat
+          mv dist/codex_pat.dll "dist/codex-pat-v${VERSION}.dll"
+
+      - name: Inspect native library
+        shell: bash
+        run: |
+          case "${GOOS}" in
+            linux) extension=.so; glibc=(--glibc-max 2.17) ;;
+            darwin) extension=.dylib; glibc=() ;;
+            windows) extension=.dll; glibc=() ;;
+          esac
+          python scripts/release.py verify-library \
+            --library "dist/codex-pat-v${VERSION}${extension}" \
+            --goos "${GOOS}" --goarch "${GOARCH}" "${glibc[@]}"
+
+      - name: Download and unpack CPA
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CPA_ASSET: ${{ matrix.cpa_asset }}
+        run: |
+          mkdir -p cpa
+          gh release download "${CPA_VERSION}" --repo router-for-me/CLIProxyAPI --pattern "${CPA_ASSET}" --dir cpa
+          tar -xzf "cpa/${CPA_ASSET}" -C cpa
+          cpa_bin="$(find cpa -type f -name cli-proxy-api -print -quit)"
+          test -n "${cpa_bin}"
+          chmod 0755 "${cpa_bin}"
+          echo "CPA_BIN=${PWD}/${cpa_bin}" >> "${GITHUB_ENV}"
+
+      - name: Download and unpack CPA on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CPA_ASSET: ${{ matrix.cpa_asset }}
+        run: |
+          New-Item -ItemType Directory -Force cpa | Out-Null
+          gh release download $env:CPA_VERSION --repo router-for-me/CLIProxyAPI --pattern $env:CPA_ASSET --dir cpa
+          Expand-Archive -Path (Join-Path cpa $env:CPA_ASSET) -DestinationPath cpa/unpacked
+          $binary = Get-ChildItem cpa/unpacked -Recurse -File -Filter cli-proxy-api.exe | Select-Object -First 1
+          if (-not $binary) { throw 'CPA executable not found in release archive' }
+          Add-Content $env:GITHUB_ENV "CPA_BIN=$($binary.FullName)"
+
+      - name: CPA load and registration smoke
+        shell: bash
+        run: |
+          case "${GOOS}" in
+            linux) extension=.so ;;
+            darwin) extension=.dylib ;;
+            windows) extension=.dll ;;
+          esac
+          go run ./cmd/cpa-load-smoke \
+            -cpa "${CPA_BIN}" \
+            -plugin "dist/codex-pat-v${VERSION}${extension}" \
+            -version "${VERSION}"
+
+      - name: Package native library
+        shell: bash
+        run: |
+          case "${GOOS}" in
+            linux) extension=.so ;;
+            darwin) extension=.dylib ;;
+            windows) extension=.dll ;;
+          esac
+          python scripts/release.py package \
+            --version "${VERSION}" --goos "${GOOS}" --goarch "${GOARCH}" \
+            --library "dist/codex-pat-v${VERSION}${extension}" --output release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codex-pat-${{ inputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: release/codex-pat_${{ inputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  aggregate:
+    name: Validate complete release set
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: codex-pat-${{ inputs.version }}-*
+          path: release
+          merge-multiple: true
+
+      - name: Generate and verify checksums
+        run: |
+          python3 scripts/release.py checksums --version "${VERSION}" --directory release
+          python3 scripts/release.py verify-release --version "${VERSION}" --directory release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codex-pat-${{ inputs.version }}-release
+          path: |
+            release/codex-pat_*.zip
+            release/checksums.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    if: inputs.mode == 'publish'
+    needs: aggregate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: codex-pat-${{ inputs.version }}-release
+          path: release
+
+      - name: Reject conflicting tag or release
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "tag v${VERSION} already exists" >&2
+            exit 1
+          fi
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "release v${VERSION} already exists" >&2
+            exit 1
+          fi
+          python3 scripts/release.py verify-release --version "${VERSION}" --directory release
+
+      - name: Create and validate draft release
+        run: |
+          gh release create "v${VERSION}" \
+            release/codex-pat_*.zip release/checksums.txt \
+            --target "${GITHUB_SHA}" --title "codex-pat v${VERSION}" \
+            --generate-notes --draft
+          gh release view "v${VERSION}" --json isDraft,targetCommitish,assets > release/remote-release.json
+          python3 -c 'import json, os, pathlib, sys; data=json.loads(pathlib.Path("release/remote-release.json").read_text()); version=os.environ["VERSION"]; expected={f"codex-pat_{version}_{goos}_{goarch}.zip" for goos, goarch in (("linux", "amd64"), ("linux", "arm64"), ("darwin", "arm64"), ("windows", "amd64"))} | {"checksums.txt"}; actual={asset["name"] for asset in data["assets"] if asset["size"] > 0}; valid=data["isDraft"] and data["targetCommitish"] == os.environ["GITHUB_SHA"] and actual == expected and len(data["assets"]) == 5; sys.exit(0 if valid else f"unexpected draft release: {data}")'
+
+      - name: Publish validated release
+        run: |
+          gh release edit "v${VERSION}" --draft=false
+          tag_sha="$(git ls-remote --tags origin "refs/tags/v${VERSION}" | awk '{print $1}')"
+          test "${tag_sha}" = "${GITHUB_SHA}"

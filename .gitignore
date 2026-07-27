@@ -1,0 +1,12 @@
+# Public source permits only the root .gitignore and root .github tree among
+# dot-prefixed paths. Local Trellis/agent state remains on disk but untracked.
+**/.*
+!/.gitignore
+!/.github/
+!/.github/**
+
+AGENTS.md
+reference/
+dist/
+__pycache__/
+*.py[cod]
