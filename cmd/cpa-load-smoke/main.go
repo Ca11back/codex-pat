@@ -56,7 +56,7 @@ type statusEnvelope struct {
 
 func main() {
 	var settings options
-	flag.StringVar(&settings.cpaBinary, "cpa", "", "path to the native CPA v7.2.102 executable")
+	flag.StringVar(&settings.cpaBinary, "cpa", "", "path to the native CPA v7.2.103 executable")
 	flag.StringVar(&settings.plugin, "plugin", "", "path to the native codex-pat library")
 	flag.StringVar(&settings.version, "version", "", "expected dotted plugin version")
 	flag.Parse()

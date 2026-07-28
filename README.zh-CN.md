@@ -11,10 +11,18 @@
 
 ## 兼容性
 
-- 插件版本：`0.1.4`
-- 已验证 CPA 版本：`v7.2.102`（原生插件 ABI/schema v1）
+| 插件版本 | 要求的 CPA 版本 | 原生 ABI | 插件 RPC schema | 状态 |
+|---|---|---:|---:|---|
+| `v0.1.4` | `v7.2.102` | 1 | 1 | 最后一个 schema-v1 版本 |
+| `v0.1.5` | `v7.2.103` | 1 | 2 | 当前支持版本 |
+
+`codex-pat v0.1.5` 仅支持 schema v2，无法在 CPA v7.2.102 上完成注册。仍使用
+CPA v7.2.102 的用户必须继续使用 `codex-pat v0.1.4`。schema v2 中可选的请求完成
+回调和活动请求终止生命周期既不实现也不声明；本插件仍只负责凭据管理，并且只
+暴露 `auth_provider` 和 `management_api`。
+
 - 发布目标：Linux amd64/arm64、macOS arm64（仅 Apple Silicon）和 Windows
-  amd64。只有对应原生 runner 完成构建，且 CPA v7.2.102 成功加载、注册并完成
+  amd64。只有对应原生 runner 完成构建，且 CPA v7.2.103 成功加载、注册并完成
   一次 host callback 后，才会发布该平台 zip。
 - 已发布 Linux 产物采用 manylinux2014 基线；如依赖高于 GLIBC 2.17 的符号，
   发布校验会拒绝该产物。
@@ -49,7 +57,7 @@ plugins:
     codex-pat:
       enabled: true
       store:
-        version: "0.1.4"
+        version: "0.1.5"
 ```
 
 启动 CPA，在 `GET /v0/management/plugins` 中确认 `codex-pat` 已注册且实际启用，
@@ -74,8 +82,9 @@ http://127.0.0.1:8317/v0/resource/plugins/codex-pat/manage
 - 禁用插件不会删除已导入的 auth 文件。若凭据必须停止使用，应在移除插件前
   通过 CPA 管理接口删除。
 
-CPA v7.2.102 无法把语法错误且未注册的 JSON 文件暴露给插件做冲突检查。不要
-手动在 `codex-pat-` 命名空间创建文件；如有无效冲突文件，请先移走再导入。
+CPA v7.2.102 和 v7.2.103 都无法把语法错误且未注册的 JSON 文件暴露给插件做
+冲突检查。不要手动在 `codex-pat-` 命名空间创建文件；如有无效冲突文件，请先
+移走再导入。
 
 ## 升级与移除
 
@@ -84,12 +93,17 @@ CPA v7.2.102 无法把语法错误且未注册的 JSON 文件暴露给插件做�
 加载的同一路径不会重新加载原生代码。CPA 启动后可能清理未选中的旧版本文件，
 因此回滚副本不能留在发现目录中。
 
+从 CPA v7.2.102 / `codex-pat v0.1.4` 升级时，必须同时升级到 CPA v7.2.103 /
+`codex-pat v0.1.5`。如需把插件回滚到 v0.1.4，也必须恢复 CPA v7.2.102，重新
+安装版本化的 v0.1.4 产物，更新版本固定值并重启 CPA。
+
 移除时，应先在插件仍启用的情况下通过 CPA 管理接口删除插件凭据，再禁用插件、
 重启 CPA 并删除动态库。
 
 ## 构建与测试
 
-需要 Go 1.26、CGO 和本机 C 工具链。
+需要 Go 1.26、CGO 和本机 C 工具链。发布产物固定使用官方 CPA v7.2.103 二进制
+记录的精确 Go 1.26.4 工具链。
 
 ```bash
 make check
@@ -97,7 +111,7 @@ make integration CPA_SOURCE=../CLIProxyAPI
 ```
 
 `make check` 执行格式化、单元测试、vet、模块校验、本机动态库构建和 ABI 检查。
-`make integration` 在 Linux/amd64 上针对干净的 CPA `v7.2.102` 源码运行完整的
+`make integration` 在 Linux/amd64 上针对干净的 CPA `v7.2.103` 源码运行完整的
 伪 PAT 生命周期测试；它不会连接 OpenAI，也不需要真实凭据。
 
 发布维护者可用 `make package` 打包当前本机目标；从四个原生 runner 收齐产物后，

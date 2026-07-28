@@ -28,9 +28,9 @@ import (
 )
 
 const (
-	defaultPluginVersion = "0.1.4"
-	upgradeFromVersion   = "0.1.3"
-	verifiedCPAVersion   = "v7.2.102"
+	defaultPluginVersion = "0.1.5"
+	upgradeFromVersion   = "0.1.4"
+	verifiedCPAVersion   = "v7.2.103"
 	managementKey        = "codex-pat-integration-management-key"
 	clientAPIKey         = "codex-pat-integration-client-key"
 	whoamiPath           = "/api/accounts/v1/user-auth-credential/whoami"

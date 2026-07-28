@@ -10,7 +10,7 @@ from scripts import release
 
 
 class ReleaseSetTest(unittest.TestCase):
-    version = "0.1.4"
+    version = "0.1.5"
 
     def write_archive(self, directory: Path, goos: str, goarch: str) -> Path:
         path = directory / release.archive_name(self.version, goos, goarch)

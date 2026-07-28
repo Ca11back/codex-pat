@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -42,6 +43,9 @@ func (d *Dispatcher) Dispatch(method string, request []byte) (response []byte) {
 	switch method {
 	case pluginabi.MethodPluginRegister, pluginabi.MethodPluginReconfigure:
 		if err := validateLifecycleRequest(request); err != nil {
+			if errors.Is(err, errInvalidLifecycleRequest) {
+				return invalidRequestEnvelope(err)
+			}
 			return errorEnvelope("unsupported_schema", err.Error(), false, http.StatusBadRequest)
 		}
 		return successEnvelope(newRegistration(d.version))
@@ -100,15 +104,17 @@ type lifecycleRequest struct {
 	SchemaVersion uint32 `json:"schema_version"`
 }
 
+var errInvalidLifecycleRequest = errors.New("plugin lifecycle request is invalid")
+
 func validateLifecycleRequest(raw []byte) error {
 	if len(strings.TrimSpace(string(raw))) == 0 {
-		return nil
+		raw = []byte(`{}`)
 	}
 	var request lifecycleRequest
 	if err := json.Unmarshal(raw, &request); err != nil {
-		return fmt.Errorf("plugin lifecycle request is invalid")
+		return errInvalidLifecycleRequest
 	}
-	if request.SchemaVersion > pluginabi.SchemaVersion {
+	if request.SchemaVersion != pluginabi.SchemaVersion {
 		return fmt.Errorf("plugin schema version %d is not supported", request.SchemaVersion)
 	}
 	return nil

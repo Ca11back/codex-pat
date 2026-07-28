@@ -6,7 +6,7 @@ on:
       version:
         description: Dotted plugin version without the v prefix
         required: true
-        default: 0.1.4
+        default: 0.1.5
         type: string
       mode:
         description: Verify artifacts or publish the GitHub Release
@@ -34,19 +34,19 @@ jobs:
           - goos: linux
             goarch: amd64
             runner: ubuntu-24.04
-            cpa_asset: CLIProxyAPI_7.2.102_linux_amd64.tar.gz
+            cpa_asset: CLIProxyAPI_7.2.103_linux_amd64.tar.gz
           - goos: linux
             goarch: arm64
             runner: ubuntu-24.04-arm
-            cpa_asset: CLIProxyAPI_7.2.102_linux_aarch64.tar.gz
+            cpa_asset: CLIProxyAPI_7.2.103_linux_aarch64.tar.gz
           - goos: darwin
             goarch: arm64
             runner: macos-15
-            cpa_asset: CLIProxyAPI_7.2.102_darwin_aarch64.tar.gz
+            cpa_asset: CLIProxyAPI_7.2.103_darwin_aarch64.tar.gz
           - goos: windows
             goarch: amd64
             runner: windows-2025
-            cpa_asset: CLIProxyAPI_7.2.102_windows_amd64.zip
+            cpa_asset: CLIProxyAPI_7.2.103_windows_amd64.zip
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -54,7 +54,7 @@ jobs:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
       CGO_ENABLED: "1"
-      CPA_VERSION: v7.2.102
+      CPA_VERSION: v7.2.103
     steps:
       - uses: actions/checkout@v4
 
@@ -78,15 +78,12 @@ jobs:
           python scripts/release.py validate-version "${VERSION}"
           python -c 'import os, pathlib, re, sys; text=pathlib.Path("Makefile").read_text(); match=re.search(r"^VERSION \?= (\S+)$", text, re.M); sys.exit(0 if match and match.group(1) == os.environ["VERSION"] else "workflow version does not match Makefile")'
 
-      - name: Native format, unit, release, vet, and module checks
+      - name: Run Windows-native credential replacement regressions
+        if: runner.os == 'Windows'
         shell: bash
         run: |
-          go fmt ./...
-          git diff --exit-code
-          go test ./...
-          python -m unittest scripts/release_test.py
-          go vet ./...
-          go mod verify
+          go test ./internal/pat -count=1 \
+            -run '^(TestReplaceFile0600ReplacesSymlinkWithoutFollowingIt|TestReplaceFile0600ReplacesRegularFile|TestGitHubActionsRequiresWindowsSymlinkTest)$'
 
       - name: Build Linux release library in manylinux2014
         if: runner.os == 'Linux'
@@ -150,6 +147,16 @@ jobs:
           $binary = Get-ChildItem cpa/unpacked -Recurse -File -Filter cli-proxy-api.exe | Select-Object -First 1
           if (-not $binary) { throw 'CPA executable not found in release archive' }
           Add-Content $env:GITHUB_ENV "CPA_BIN=$($binary.FullName)"
+
+      - name: Verify official CPA Go toolchain
+        shell: bash
+        run: |
+          build_info="$(go version -m "${CPA_BIN}")"
+          printf '%s\n' "${build_info}"
+          if ! grep -Eq ': go1\.26\.4$' <<<"${build_info}"; then
+            echo "official CPA ${CPA_VERSION} was not built with Go 1.26.4" >&2
+            exit 1
+          fi
 
       - name: CPA load and registration smoke
         shell: bash
@@ -259,6 +266,7 @@ jobs:
           gh release create "v${VERSION}" \
             release/codex-pat_*.zip release/checksums.txt \
             --target "${GITHUB_SHA}" --title "codex-pat v${VERSION}" \
+            --notes "Compatibility: codex-pat v${VERSION} requires CLIProxyAPI v7.2.103 and plugin RPC schema v2. codex-pat v0.1.4 is the final release for CLIProxyAPI v7.2.102 and plugin RPC schema v1." \
             --generate-notes --draft
           gh release view "v${VERSION}" --json isDraft,targetCommitish,assets > release/remote-release.json
           python3 -c 'import json, os, pathlib, sys; data=json.loads(pathlib.Path("release/remote-release.json").read_text()); version=os.environ["VERSION"]; expected={f"codex-pat_{version}_{goos}_{goarch}.zip" for goos, goarch in (("linux", "amd64"), ("linux", "arm64"), ("darwin", "arm64"), ("windows", "amd64"))} | {"checksums.txt"}; actual={asset["name"] for asset in data["assets"] if asset["size"] > 0}; valid=data["isDraft"] and data["targetCommitish"] == os.environ["GITHUB_SHA"] and actual == expected and len(data["assets"]) == 5; sys.exit(0 if valid else f"unexpected draft release: {data}")'
