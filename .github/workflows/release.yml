@@ -6,7 +6,7 @@ on:
       version:
         description: Dotted plugin version without the v prefix
         required: true
-        default: 0.1.5
+        default: 0.1.6
         type: string
       mode:
         description: Verify artifacts or publish the GitHub Release
@@ -34,19 +34,23 @@ jobs:
           - goos: linux
             goarch: amd64
             runner: ubuntu-24.04
-            cpa_asset: CLIProxyAPI_7.2.103_linux_amd64.tar.gz
+            cpa_schema2_asset: CLIProxyAPI_7.2.103_linux_amd64.tar.gz
+            cpa_schema3_asset: CLIProxyAPI_7.2.129_linux_amd64.tar.gz
           - goos: linux
             goarch: arm64
             runner: ubuntu-24.04-arm
-            cpa_asset: CLIProxyAPI_7.2.103_linux_aarch64.tar.gz
+            cpa_schema2_asset: CLIProxyAPI_7.2.103_linux_aarch64.tar.gz
+            cpa_schema3_asset: CLIProxyAPI_7.2.129_linux_aarch64.tar.gz
           - goos: darwin
             goarch: arm64
             runner: macos-15
-            cpa_asset: CLIProxyAPI_7.2.103_darwin_aarch64.tar.gz
+            cpa_schema2_asset: CLIProxyAPI_7.2.103_darwin_aarch64.tar.gz
+            cpa_schema3_asset: CLIProxyAPI_7.2.129_darwin_aarch64.tar.gz
           - goos: windows
             goarch: amd64
             runner: windows-2025
-            cpa_asset: CLIProxyAPI_7.2.103_windows_amd64.zip
+            cpa_schema2_asset: CLIProxyAPI_7.2.103_windows_amd64.zip
+            cpa_schema3_asset: CLIProxyAPI_7.2.129_windows_amd64.zip
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -54,7 +58,8 @@ jobs:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
       CGO_ENABLED: "1"
-      CPA_VERSION: v7.2.103
+      CPA_SCHEMA2_VERSION: v7.2.103
+      CPA_SCHEMA3_VERSION: v7.2.129
     steps:
       - uses: actions/checkout@v4
 
@@ -119,46 +124,65 @@ jobs:
             --library "dist/codex-pat-v${VERSION}${extension}" \
             --goos "${GOOS}" --goarch "${GOARCH}" "${glibc[@]}"
 
-      - name: Download and unpack CPA
+      - name: Download and unpack schema-v2 and schema-v3 CPA releases
         if: runner.os != 'Windows'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          CPA_ASSET: ${{ matrix.cpa_asset }}
+          CPA_SCHEMA2_ASSET: ${{ matrix.cpa_schema2_asset }}
+          CPA_SCHEMA3_ASSET: ${{ matrix.cpa_schema3_asset }}
         run: |
-          mkdir -p cpa
-          gh release download "${CPA_VERSION}" --repo router-for-me/CLIProxyAPI --pattern "${CPA_ASSET}" --dir cpa
-          tar -xzf "cpa/${CPA_ASSET}" -C cpa
-          cpa_bin="$(find cpa -type f -name cli-proxy-api -print -quit)"
-          test -n "${cpa_bin}"
-          chmod 0755 "${cpa_bin}"
-          echo "CPA_BIN=${PWD}/${cpa_bin}" >> "${GITHUB_ENV}"
+          mkdir -p cpa-schema2 cpa-schema3
+          gh release download "${CPA_SCHEMA2_VERSION}" --repo router-for-me/CLIProxyAPI --pattern "${CPA_SCHEMA2_ASSET}" --dir cpa-schema2
+          gh release download "${CPA_SCHEMA3_VERSION}" --repo router-for-me/CLIProxyAPI --pattern "${CPA_SCHEMA3_ASSET}" --dir cpa-schema3
+          tar -xzf "cpa-schema2/${CPA_SCHEMA2_ASSET}" -C cpa-schema2
+          tar -xzf "cpa-schema3/${CPA_SCHEMA3_ASSET}" -C cpa-schema3
+          cpa_schema2_bin="$(find cpa-schema2 -type f -name cli-proxy-api -print -quit)"
+          cpa_schema3_bin="$(find cpa-schema3 -type f -name cli-proxy-api -print -quit)"
+          test -n "${cpa_schema2_bin}"
+          test -n "${cpa_schema3_bin}"
+          chmod 0755 "${cpa_schema2_bin}" "${cpa_schema3_bin}"
+          echo "CPA_SCHEMA2_BIN=${PWD}/${cpa_schema2_bin}" >> "${GITHUB_ENV}"
+          echo "CPA_SCHEMA3_BIN=${PWD}/${cpa_schema3_bin}" >> "${GITHUB_ENV}"
 
-      - name: Download and unpack CPA on Windows
+      - name: Download and unpack schema-v2 and schema-v3 CPA releases on Windows
         if: runner.os == 'Windows'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          CPA_ASSET: ${{ matrix.cpa_asset }}
+          CPA_SCHEMA2_ASSET: ${{ matrix.cpa_schema2_asset }}
+          CPA_SCHEMA3_ASSET: ${{ matrix.cpa_schema3_asset }}
         run: |
-          New-Item -ItemType Directory -Force cpa | Out-Null
-          gh release download $env:CPA_VERSION --repo router-for-me/CLIProxyAPI --pattern $env:CPA_ASSET --dir cpa
-          Expand-Archive -Path (Join-Path cpa $env:CPA_ASSET) -DestinationPath cpa/unpacked
-          $binary = Get-ChildItem cpa/unpacked -Recurse -File -Filter cli-proxy-api.exe | Select-Object -First 1
-          if (-not $binary) { throw 'CPA executable not found in release archive' }
-          Add-Content $env:GITHUB_ENV "CPA_BIN=$($binary.FullName)"
+          New-Item -ItemType Directory -Force cpa-schema2,cpa-schema3 | Out-Null
+          gh release download $env:CPA_SCHEMA2_VERSION --repo router-for-me/CLIProxyAPI --pattern $env:CPA_SCHEMA2_ASSET --dir cpa-schema2
+          gh release download $env:CPA_SCHEMA3_VERSION --repo router-for-me/CLIProxyAPI --pattern $env:CPA_SCHEMA3_ASSET --dir cpa-schema3
+          Expand-Archive -Path (Join-Path cpa-schema2 $env:CPA_SCHEMA2_ASSET) -DestinationPath cpa-schema2/unpacked
+          Expand-Archive -Path (Join-Path cpa-schema3 $env:CPA_SCHEMA3_ASSET) -DestinationPath cpa-schema3/unpacked
+          $schema2Binary = Get-ChildItem cpa-schema2/unpacked -Recurse -File -Filter cli-proxy-api.exe | Select-Object -First 1
+          $schema3Binary = Get-ChildItem cpa-schema3/unpacked -Recurse -File -Filter cli-proxy-api.exe | Select-Object -First 1
+          if (-not $schema2Binary) { throw 'CPA v7.2.103 executable not found in release archive' }
+          if (-not $schema3Binary) { throw 'CPA v7.2.129 executable not found in release archive' }
+          Add-Content $env:GITHUB_ENV "CPA_SCHEMA2_BIN=$($schema2Binary.FullName)"
+          Add-Content $env:GITHUB_ENV "CPA_SCHEMA3_BIN=$($schema3Binary.FullName)"
 
-      - name: Verify official CPA Go toolchain
+      - name: Verify official CPA Go toolchains
         shell: bash
         run: |
-          build_info="$(go version -m "${CPA_BIN}")"
-          printf '%s\n' "${build_info}"
-          if ! grep -Eq ': go1\.26\.4$' <<<"${build_info}"; then
-            echo "official CPA ${CPA_VERSION} was not built with Go 1.26.4" >&2
-            exit 1
-          fi
+          verify_toolchain() {
+            local version="$1"
+            local binary="$2"
+            local build_info
+            build_info="$(go version -m "${binary}")"
+            printf '%s\n' "${build_info}"
+            if ! grep -Eq ': go1\.26\.4$' <<<"${build_info}"; then
+              echo "official CPA ${version} was not built with Go 1.26.4" >&2
+              exit 1
+            fi
+          }
+          verify_toolchain "${CPA_SCHEMA2_VERSION}" "${CPA_SCHEMA2_BIN}"
+          verify_toolchain "${CPA_SCHEMA3_VERSION}" "${CPA_SCHEMA3_BIN}"
 
-      - name: CPA load and registration smoke
+      - name: CPA schema-v2 and schema-v3 load and registration smoke
         shell: bash
         run: |
           case "${GOOS}" in
@@ -166,10 +190,12 @@ jobs:
             darwin) extension=.dylib ;;
             windows) extension=.dll ;;
           esac
-          go run ./cmd/cpa-load-smoke \
-            -cpa "${CPA_BIN}" \
-            -plugin "dist/codex-pat-v${VERSION}${extension}" \
-            -version "${VERSION}"
+          for cpa_bin in "${CPA_SCHEMA2_BIN}" "${CPA_SCHEMA3_BIN}"; do
+            go run ./cmd/cpa-load-smoke \
+              -cpa "${cpa_bin}" \
+              -plugin "dist/codex-pat-v${VERSION}${extension}" \
+              -version "${VERSION}"
+          done
 
       - name: Package native library
         shell: bash
@@ -266,7 +292,7 @@ jobs:
           gh release create "v${VERSION}" \
             release/codex-pat_*.zip release/checksums.txt \
             --target "${GITHUB_SHA}" --title "codex-pat v${VERSION}" \
-            --notes "Compatibility: codex-pat v${VERSION} requires CLIProxyAPI v7.2.103 and plugin RPC schema v2. codex-pat v0.1.4 is the final release for CLIProxyAPI v7.2.102 and plugin RPC schema v1." \
+            --notes "Compatibility: codex-pat v${VERSION} is built against the CLIProxyAPI v7.2.129 SDK, declares plugin RPC schema v2, and supports verified CPA host schemas v2-v3 (official v7.2.103 and v7.2.129). Host schema v1 and v4+ are rejected. codex-pat v0.1.5 is the final release targeting only CLIProxyAPI v7.2.103/schema v2; v0.1.4 is the final schema-v1 release for CLIProxyAPI v7.2.102." \
             --generate-notes --draft
           gh release view "v${VERSION}" --json isDraft,targetCommitish,assets > release/remote-release.json
           python3 -c 'import json, os, pathlib, sys; data=json.loads(pathlib.Path("release/remote-release.json").read_text()); version=os.environ["VERSION"]; expected={f"codex-pat_{version}_{goos}_{goarch}.zip" for goos, goarch in (("linux", "amd64"), ("linux", "arm64"), ("darwin", "arm64"), ("windows", "amd64"))} | {"checksums.txt"}; actual={asset["name"] for asset in data["assets"] if asset["size"] > 0}; valid=data["isDraft"] and data["targetCommitish"] == os.environ["GITHUB_SHA"] and actual == expected and len(data["assets"]) == 5; sys.exit(0 if valid else f"unexpected draft release: {data}")'

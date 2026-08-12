@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-version="${VERSION:-0.1.5}"
+version="${VERSION:-0.1.6}"
 goarch="${GOARCH:-$(go env GOARCH)}"
 output="${OUTPUT:-dist/codex-pat-v${version}.so}"
 

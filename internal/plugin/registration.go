@@ -3,14 +3,16 @@ package plugin
 import (
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginabi"
 	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
 )
 
 const (
-	Name          = "Codex PAT"
-	Author        = "Ca11back"
-	RepositoryURL = "https://github.com/Ca11back/codex-pat"
+	Name                 = "Codex PAT"
+	Author               = "Ca11back"
+	RepositoryURL        = "https://github.com/Ca11back/codex-pat"
+	pluginSchemaVersion  = uint32(2)
+	minHostSchemaVersion = uint32(2)
+	maxHostSchemaVersion = uint32(3)
 )
 
 type registration struct {
@@ -30,7 +32,7 @@ func newRegistration(version string) registration {
 		version = "dev"
 	}
 	return registration{
-		SchemaVersion: pluginabi.SchemaVersion,
+		SchemaVersion: pluginSchemaVersion,
 		Metadata: pluginapi.Metadata{
 			Name:             Name,
 			Version:          version,
