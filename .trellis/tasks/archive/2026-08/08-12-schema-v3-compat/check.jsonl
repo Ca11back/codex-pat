@@ -1,0 +1,1 @@
+{"file":".trellis/spec/backend/cpa-native-plugin-contract.md","reason":"Verification must confirm the declared plugin schema, SDK baseline, ABI, capabilities, and exact CPA load behavior remain consistent."}

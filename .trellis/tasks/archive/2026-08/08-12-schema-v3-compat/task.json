@@ -1,0 +1,28 @@
+{
+  "id": "schema-v3-compat",
+  "name": "schema-v3-compat",
+  "title": "Support CPA plugin schema v3",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "backend",
+  "package": null,
+  "priority": "P2",
+  "creator": "ca11back",
+  "assignee": "ca11back",
+  "createdAt": "2026-08-12",
+  "completedAt": "2026-08-12",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "verified_host_schemas": "2,3"
+  }
+}
