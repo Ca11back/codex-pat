@@ -12,11 +12,11 @@ dynamic-library plugin that:
 - parses or persists authentication files;
 - handles credentials or other bounded upstream responses.
 
-The current verified baseline is `codex-pat v0.1.6`, built with the CPA
-`v7.2.129` SDK, native ABI v1, and plugin RPC schema v2. The same artifact is
-verified on CPA host schema v2 (`v7.2.103`) and host schema v3 (`v7.2.129`).
-`codex-pat v0.1.4` remains the final release for CPA `v7.2.102` / schema v1;
-newer releases intentionally do not negotiate or fall back to schema v1.
+The current verified baseline is `codex-pat v0.1.7`, built with the CPA
+`v7.2.144` SDK, native ABI v1, and plugin RPC schema v1. The same contract is
+verified on CPA host schemas 1 (`v7.2.102`), 2 (`v7.2.103`), 3 (`v7.2.129`),
+and 4 (`v7.2.144`). `codex-pat v0.1.6` remains the preceding release for
+schema-2 hosts; v0.1.7 restores the schema-1 compatibility subset.
 
 ### 2. Signatures
 
@@ -71,9 +71,11 @@ Content-Security-Policy: ...; frame-ancestors 'self'
 - Treat lifecycle request `schema_version` as the host schema being offered and
   registration response `schema_version` as the plugin contract selected for
   that registration. They are not required to be equal.
-- For v0.1.6, accept only the audited host schemas 2 and 3, and return plugin
-  schema 2 for both. Reject schema v1, missing/zero schema, malformed JSON, and
-  unknown schema v4 or newer rather than silently claiming compatibility.
+- For v0.1.7, accept host schema 1 or newer and return plugin schema 1 for all
+  accepted hosts. The plugin only relies on the stable auth-provider and
+  management-api subset; this numeric forward tolerance is not a claim that
+  future host capabilities have been audited. Reject missing/zero schema and
+  malformed JSON.
 - Updating the SDK does not itself require increasing the plugin schema. Raise
   the plugin schema only when the plugin adopts behavior introduced by the new
   RPC contract. Expand the accepted host set only after auditing and testing
@@ -109,7 +111,7 @@ Content-Security-Policy: ...; frame-ancestors 'self'
 
 #### Release toolchain compatibility
 
-- The exact v0.1.6 release set is Linux amd64, Linux arm64, Darwin arm64, and
+- The exact v0.1.7 release set is Linux amd64, Linux arm64, Darwin arm64, and
   Windows amd64. Darwin/amd64 is unsupported for this Go `c-shared` plugin and
   must be rejected by build/release validation rather than emitted as an
   untested asset. This is a project support boundary, not a claim that CPA or
@@ -121,7 +123,7 @@ Content-Security-Policy: ...; frame-ancestors 'self'
   a passing architecture as proof for another architecture.
 - When one artifact claims compatibility with multiple CPA releases, inspect
   every supported official CPA binary with `go version -m`. The verified
-  v7.2.103 and v7.2.129 Linux amd64 binaries both use Go 1.26.4; a future
+  v7.2.103, v7.2.129, and v7.2.144 official binaries use Go 1.26.4; a future
   mismatch requires separate release artifacts or a narrower support claim.
 - The same pinned `GOROOT` must build every native asset, including Linux
   assets built inside manylinux containers.
@@ -281,8 +283,8 @@ must use HTTP(S), and must never be logged with the credential.
 | Condition | Required behavior |
 |---|---|
 | ABI mismatch or incomplete function table | Reject plugin initialization |
-| Lifecycle request uses audited host schema v2 or v3 | Return plugin schema-v2 registration metadata with exactly `auth_provider` and `management_api` |
-| Lifecycle request uses schema v1, zero/missing schema, or unknown schema v4+ | Return HTTP-400 `unsupported_schema`; do not register or reconfigure |
+| Lifecycle request uses host schema 1 or newer | Return plugin schema-v1 registration metadata with exactly `auth_provider` and `management_api` |
+| Lifecycle request uses zero/missing schema | Return HTTP-400 `unsupported_schema`; do not register or reconfigure |
 | Lifecycle request JSON is malformed | Return HTTP-400 `invalid_request` with a stable redacted message |
 | Schema-v2 optional request-lifecycle capability is not implemented | Omit `request_lifecycle_plugin`; CPA must not dispatch `request.complete` to this plugin |
 | Plugin Go patch version differs from the supported CPA release binary | Reject the release candidate; rebuild every asset with CPA's exact recorded toolchain |
@@ -316,8 +318,8 @@ must use HTTP(S), and must never be logged with the credential.
 - Good: management import streams a bounded validation response, saves through
   the host, atomically writes `0600`, reports pending until watcher readiness,
   and reuses the native executor.
-- Good: v0.1.6, built with the v7.2.129 SDK, receives host schema 2 or 3,
-  returns its explicit plugin schema 2, and advertises only auth-provider and
+- Good: v0.1.7, built with the v7.2.144 SDK, receives host schema 1 or newer,
+  returns its explicit plugin schema 1, and advertises only auth-provider and
   management capabilities.
 - Good: the resource HTML permits only CPA's same-origin management iframe with
   `frame-ancestors 'self'`.
@@ -344,14 +346,15 @@ must use HTTP(S), and must never be logged with the credential.
   expected basename without resolving the destination.
 - Base: a plugin-owned auth file reloads offline from validated cached metadata.
 - Bad: returning `frame-ancestors 'none'` from a resource page that CPA embeds.
-- Bad: treating unchanged native ABI v1 as proof that a schema-v1 plugin can
-  register on a schema-v2-only release.
-- Bad: accepting schema v1 in v0.1.6 or advertising request lifecycle merely
-  because the SDK added it.
+- Bad: treating unchanged native ABI v1 as proof that every future host
+  capability is compatible with the plugin.
+- Bad: raising the plugin schema or advertising request lifecycle merely
+  because the SDK added a newer schema.
 - Bad: returning `pluginabi.SchemaVersion` merely because the dependency was
   updated; that couples the plugin's claimed behavior to unrelated SDK changes.
-- Bad: accepting every host schema `>= 2`; unknown future schemas remain
-  unsupported until their compatibility is audited and tested.
+- Bad: treating acceptance of every host schema `>= 1` as proof that unknown
+  future capabilities are compatible; the policy only covers the stable
+  schema-1 subset.
 - Bad: treating immediate `host.auth.save` runtime registration as proof that
   plan-aware models are ready.
 - Bad: using an API-key attribute for an account-scoped bearer credential.
@@ -384,18 +387,19 @@ must use HTTP(S), and must never be logged with the credential.
   preservation, cross-user workspace isolation, third-party filename isolation,
   stale-watcher repair, secure
   rewrite, symlink rejection, bounded stream reads, and redaction.
-- Registration unit: assert ABI 1, SDK schema 3, and independent PAT plugin
-  schema 2; host schema-v2 and schema-v3 success for both register and
-  reconfigure; response schema 2; exactly two capabilities; stable
-  schema-v1/zero/schema-v4 rejection; and stable malformed-JSON rejection.
+- Registration unit: assert ABI 1, SDK schema 4, and independent PAT plugin
+  schema 1; host schemas 1, 2, 3, 4, and a larger future value succeed for both
+  register and reconfigure; response schema 1; exactly two capabilities; stable
+  zero/missing-schema rejection; and stable malformed-JSON rejection.
 - Management: every authenticated route must return 401 without a key; static
   resources contain no credential data; mutations are serialized; resource HTML
   must retain every strict CSP directive while allowing only
   `frame-ancestors 'self'`.
 - Integration: require each source-based CPA target to have the expected exact
   tag and a clean worktree. Build one shared library, then load/register that
-  same artifact on verified CPA v7.2.103/schema-v2 and
-  v7.2.129/schema-v3 hosts and complete a real host callback. Continue with the
+  same artifact on the current verified CPA v7.2.144/schema-v4 host and complete
+  a real host callback. Historical host schemas are covered by the compatibility
+  audit and registration unit tests. Continue with the
   full target-CPA lifecycle: mock upstream validation, assert `0600`, replacement/invalidation,
   canonical naming, same-workspace cross-user isolation,
   watcher readiness, a version-pinned restart upgrade from the prior release,
@@ -464,12 +468,9 @@ secured := info.Mode().Perm() == 0o600
 #### Correct
 
 ```go
-const patPluginSchemaVersion uint32 = 2
+const patPluginSchemaVersion uint32 = 1
 
-switch request.SchemaVersion {
-case 2, 3:
-    // Both audited hosts can run the PAT plugin's schema-v2 contract.
-default:
+if request.SchemaVersion < minHostSchemaVersion {
     return unsupportedSchema(request.SchemaVersion)
 }
 registration.SchemaVersion = patPluginSchemaVersion

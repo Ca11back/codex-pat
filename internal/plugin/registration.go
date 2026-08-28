@@ -10,9 +10,8 @@ const (
 	Name                 = "Codex PAT"
 	Author               = "Ca11back"
 	RepositoryURL        = "https://github.com/Ca11back/codex-pat"
-	pluginSchemaVersion  = uint32(2)
-	minHostSchemaVersion = uint32(2)
-	maxHostSchemaVersion = uint32(3)
+	pluginSchemaVersion  = uint32(1)
+	minHostSchemaVersion = uint32(1)
 )
 
 type registration struct {

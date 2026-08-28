@@ -43,21 +43,21 @@ func TestCPAContractVersions(t *testing.T) {
 	if pluginabi.ABIVersion != 1 {
 		t.Fatalf("ABI version = %d, want 1", pluginabi.ABIVersion)
 	}
-	if pluginabi.SchemaVersion != 3 {
-		t.Fatalf("SDK schema version = %d, want 3", pluginabi.SchemaVersion)
+	if pluginabi.SchemaVersion != 4 {
+		t.Fatalf("SDK schema version = %d, want 4", pluginabi.SchemaVersion)
 	}
-	if pluginSchemaVersion != 2 {
-		t.Fatalf("PAT plugin schema version = %d, want 2", pluginSchemaVersion)
+	if pluginSchemaVersion != 1 {
+		t.Fatalf("PAT plugin schema version = %d, want 1", pluginSchemaVersion)
 	}
 	if pluginSchemaVersion == pluginabi.SchemaVersion {
 		t.Fatal("PAT plugin schema must not be derived from the SDK schema version")
 	}
 }
 
-func TestLifecycleMethodsAcceptVerifiedHostSchemasAndReturnPluginSchemaTwo(t *testing.T) {
+func TestLifecycleMethodsAcceptHostSchemasFromSchemaOneAndReturnPluginSchemaOne(t *testing.T) {
 	dispatcher := NewDispatcher("test", fakeManagement{})
 	for _, method := range []string{pluginabi.MethodPluginRegister, pluginabi.MethodPluginReconfigure} {
-		for hostSchema := minHostSchemaVersion; hostSchema <= maxHostSchemaVersion; hostSchema++ {
+		for _, hostSchema := range []uint32{1, 2, 3, 4, 99} {
 			t.Run(method+"/host-schema-"+strconv.FormatUint(uint64(hostSchema), 10), func(t *testing.T) {
 				request := []byte(`{"schema_version":` + strconv.FormatUint(uint64(hostSchema), 10) + `}`)
 				envelope := decodeTestEnvelope(t, dispatcher.Dispatch(method, request))
@@ -84,13 +84,10 @@ func TestLifecycleMethodsRejectInvalidOrUnsupportedSchemas(t *testing.T) {
 		code    string
 		message string
 	}{
-		{name: "schema v1", request: `{"schema_version":1}`, code: "unsupported_schema", message: "host plugin schema version 1 is not supported"},
 		{name: "missing schema", request: `{}`, code: "unsupported_schema", message: "host plugin schema version 0 is not supported"},
 		{name: "zero schema", request: `{"schema_version":0}`, code: "unsupported_schema", message: "host plugin schema version 0 is not supported"},
 		{name: "empty request", request: ``, code: "unsupported_schema", message: "host plugin schema version 0 is not supported"},
 		{name: "malformed JSON", request: `{"schema_version":`, code: "invalid_request", message: "plugin lifecycle request is invalid"},
-		{name: "future schema", request: `{"schema_version":4}`, code: "unsupported_schema", message: "host plugin schema version 4 is not supported"},
-		{name: "far future schema", request: `{"schema_version":99}`, code: "unsupported_schema", message: "host plugin schema version 99 is not supported"},
 	}
 	for _, method := range []string{pluginabi.MethodPluginRegister, pluginabi.MethodPluginReconfigure} {
 		method := method

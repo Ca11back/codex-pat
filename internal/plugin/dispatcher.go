@@ -114,7 +114,7 @@ func validateLifecycleRequest(raw []byte) error {
 	if err := json.Unmarshal(raw, &request); err != nil {
 		return errInvalidLifecycleRequest
 	}
-	if request.SchemaVersion < minHostSchemaVersion || request.SchemaVersion > maxHostSchemaVersion {
+	if request.SchemaVersion < minHostSchemaVersion {
 		return fmt.Errorf("host plugin schema version %d is not supported", request.SchemaVersion)
 	}
 	return nil
