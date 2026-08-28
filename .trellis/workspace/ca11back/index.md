@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 10
-- **Last Active**: 2026-08-12
+- **Total Sessions**: 11
+- **Last Active**: 2026-08-28
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~338 | Active |
+| `journal-1.md` | ~359 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 11 | 2026-08-28 | CPA schema-1 compatibility release | `475880c` | `master` |
 | 10 | 2026-08-12 | Release codex-pat v0.1.6 schema-v3 host compatibility | `5bd838d` | `master` |
 | 9 | 2026-07-28 | Release codex-pat v0.1.5 for CPA schema v2 | `72aeffb` | `master` |
 | 8 | 2026-07-27 | Finalize public visibility and CPA store submission | `2458d03` | `master` |

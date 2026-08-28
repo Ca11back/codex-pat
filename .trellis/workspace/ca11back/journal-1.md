@@ -336,3 +336,24 @@ Upgraded to CPA SDK v7.2.129 while keeping the PAT plugin on RPC schema v2, veri
 ### Status
 
 [OK] **Completed**
+
+
+## Session 11: CPA schema-1 compatibility release
+
+**Date**: 2026-08-28
+**Task**: CPA schema-1 compatibility release
+**Branch**: `master`
+
+### Summary
+
+Changed codex-pat to declare plugin schema 1 and accept host schema 1+ without an upper bound; upgraded CPA SDK to v7.2.144, attempted all-module upgrades with tidy, bumped release to v0.1.7, synchronized READMEs/release workflow/spec, and validated make check, CPA v7.2.144 integration, and Linux amd64 load smokes for CPA v7.2.102/103/129/144.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `475880c` | (see git log) |
+
+### Status
+
+[OK] **Completed**
