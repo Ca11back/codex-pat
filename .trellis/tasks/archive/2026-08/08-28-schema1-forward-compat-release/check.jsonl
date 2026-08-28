@@ -1,0 +1,3 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/cpa-native-plugin-contract.md", "reason": "Quality check must verify the updated schema-1 contract against native plugin and release invariants."}
+{"file": ".trellis/tasks/08-28-schema1-forward-compat-release/research/cpa-schema-compatibility.md", "reason": "Quality check must compare implementation and workflow claims with source-verified CPA behavior."}
