@@ -6,7 +6,7 @@ on:
       version:
         description: Dotted plugin version without the v prefix
         required: true
-        default: 0.1.7
+        default: 0.1.8
         type: string
       mode:
         description: Verify artifacts or publish the GitHub Release
@@ -40,6 +40,10 @@ jobs:
             runner: ubuntu-24.04-arm
             cpa_asset: CLIProxyAPI_7.2.144_linux_aarch64.tar.gz
           - goos: darwin
+            goarch: amd64
+            runner: macos-15-intel
+            cpa_asset: CLIProxyAPI_7.2.144_darwin_amd64.tar.gz
+          - goos: darwin
             goarch: arm64
             runner: macos-15
             cpa_asset: CLIProxyAPI_7.2.144_darwin_aarch64.tar.gz
@@ -47,6 +51,10 @@ jobs:
             goarch: amd64
             runner: windows-2025
             cpa_asset: CLIProxyAPI_7.2.144_windows_amd64.zip
+          - goos: windows
+            goarch: arm64
+            runner: windows-11-arm
+            cpa_asset: CLIProxyAPI_7.2.144_windows_aarch64.zip
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -61,6 +69,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: 1.26.4
+          architecture: ${{ matrix.goarch == 'amd64' && 'x64' || 'arm64' }}
           cache: true
 
       - uses: actions/setup-python@v5
@@ -68,13 +77,32 @@ jobs:
           python-version: "3.13"
 
       - name: Expose MinGW toolchain
-        if: runner.os == 'Windows'
+        if: matrix.goos == 'windows' && matrix.goarch == 'amd64'
         shell: pwsh
         run: Add-Content $env:GITHUB_PATH 'C:\msys64\mingw64\bin'
+
+      - name: Set up Windows ARM64 C compiler
+        if: matrix.goos == 'windows' && matrix.goarch == 'arm64'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=20261117
+          toolchain="llvm-mingw-${version}-ucrt-aarch64"
+          mkdir -p dist/toolchain
+          cd dist/toolchain
+          gh release download "${version}" --repo mstorsjo/llvm-mingw --pattern "${toolchain}.zip"
+          printf '%s  %s\n' c7f56de1d7aca15196c19083a799205390397b8b87a825aec3485e1e4f3c2cdd "${toolchain}.zip" | sha256sum -c
+          export TOOLCHAIN_ZIP="${toolchain}.zip"
+          powershell -NoProfile -Command 'Expand-Archive -LiteralPath $env:TOOLCHAIN_ZIP -DestinationPath .'
+          cygpath -w "$PWD/${toolchain}/bin" >> "${GITHUB_PATH}"
+          echo 'CC=aarch64-w64-mingw32-clang' >> "${GITHUB_ENV}"
 
       - name: Validate version and source consistency
         shell: bash
         run: |
+          test "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" = "${GOOS}/${GOARCH}"
           python scripts/release.py validate-version "${VERSION}"
           python -c 'import os, pathlib, re, sys; text=pathlib.Path("Makefile").read_text(); match=re.search(r"^VERSION \?= (\S+)$", text, re.M); sys.exit(0 if match and match.group(1) == os.environ["VERSION"] else "workflow version does not match Makefile")'
 
@@ -266,10 +294,26 @@ jobs:
           gh release create "v${VERSION}" \
             release/codex-pat_*.zip release/checksums.txt \
             --target "${GITHUB_SHA}" --title "codex-pat v${VERSION}" \
-            --notes "Compatibility: codex-pat v${VERSION} is built against the CLIProxyAPI v7.2.144 SDK, declares plugin RPC schema v1, and is verified with official CPA v7.2.102, v7.2.103, v7.2.129, and v7.2.144 (host schemas 1-4). Host schema values 1 and newer are forward-tolerated over the stable auth-provider and management-api subset; future host releases are not individually verified. codex-pat v0.1.6 is the preceding schema-v2 plugin release." \
+            --notes "Adds Intel macOS (darwin/amd64) and Windows ARM64, completing the six-platform release matrix. On Intel macOS, calls between the CPA and plugin Go runtimes run on separate native threads. All six builds passed native load, registration, and host callback tests with official CPA v7.2.144. The plugin declares RPC schema v1 and accepts host schemas 1 and newer for the auth-provider and management-api interfaces." \
             --generate-notes --draft
           gh release view "v${VERSION}" --json isDraft,targetCommitish,assets > release/remote-release.json
-          python3 -c 'import json, os, pathlib, sys; data=json.loads(pathlib.Path("release/remote-release.json").read_text()); version=os.environ["VERSION"]; expected={f"codex-pat_{version}_{goos}_{goarch}.zip" for goos, goarch in (("linux", "amd64"), ("linux", "arm64"), ("darwin", "arm64"), ("windows", "amd64"))} | {"checksums.txt"}; actual={asset["name"] for asset in data["assets"] if asset["size"] > 0}; valid=data["isDraft"] and data["targetCommitish"] == os.environ["GITHUB_SHA"] and actual == expected and len(data["assets"]) == 5; sys.exit(0 if valid else f"unexpected draft release: {data}")'
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from scripts.release import TARGETS, archive_name
+
+          data = json.loads(Path("release/remote-release.json").read_text())
+          version = os.environ["VERSION"]
+          expected = {archive_name(version, goos, goarch) for goos, goarch, _ in TARGETS}
+          expected.add("checksums.txt")
+          assets = data["assets"]
+          actual = {asset["name"] for asset in assets if asset["size"] > 0}
+          if (not data["isDraft"] or data["targetCommitish"] != os.environ["GITHUB_SHA"]
+                  or actual != expected or len(assets) != len(expected)):
+              raise SystemExit(f"unexpected draft release: {data}")
+          PY
 
       - name: Publish validated release
         run: |

@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	defaultPluginVersion = "0.1.7"
+	defaultPluginVersion = "0.1.8"
 	upgradeFromVersion   = "0.1.6"
 	verifiedCPAVersion   = "v7.2.144"
 	managementKey        = "codex-pat-integration-management-key"

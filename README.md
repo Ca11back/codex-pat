@@ -31,13 +31,12 @@ Consequences worth stating up front:
 | Platform | Library shipped in the release zip |
 |---|---|
 | Linux amd64, arm64 | `codex-pat.so` |
-| macOS arm64 | `codex-pat.dylib` |
-| Windows amd64 | `codex-pat.dll` |
+| macOS amd64, arm64 | `codex-pat.dylib` |
+| Windows amd64, arm64 | `codex-pat.dll` |
 
-macOS Intel is not supported: Go does not support an in-process Go host loading
-a Go `c-shared` library on Darwin amd64. Linux builds target the manylinux2014
-baseline, and release verification rejects any artifact requiring symbols newer
-than GLIBC 2.17.
+Intel macOS and Windows ARM64 packages are available starting with v0.1.8.
+Linux builds target the manylinux2014 baseline and require GLIBC 2.17 or older
+symbols.
 
 ## Installation
 
@@ -64,7 +63,7 @@ skip to step 3.
        codex-pat:
          enabled: true
          store:
-           version: "0.1.7"
+           version: "0.1.8"
    ```
 
 4. **Verify registration.** Start CPA and confirm that `codex-pat` appears in
@@ -154,13 +153,14 @@ aside before importing.
 
 | Plugin | CPA versions verified | Host schema | Schema declared |
 |---|---|---:|---:|
-| `v0.1.7` (current) | `v7.2.102`, `v7.2.103`, `v7.2.129`, `v7.2.144` | 1–4 | 1 |
+| `v0.1.8` (current) | `v7.2.144` on all six platforms | 4 | 1 |
+| `v0.1.7` | `v7.2.102`, `v7.2.103`, `v7.2.129`, `v7.2.144` | 1–4 | 1 |
 | `v0.1.6` | `v7.2.103`, `v7.2.129` | 2, 3 | 2 |
 | `v0.1.5` | `v7.2.103` | 2 | 2 |
 | `v0.1.4` | `v7.2.102` | 1 | 1 |
 
-v0.1.7 is built against the CPA v7.2.144 SDK, whose newest RPC schema is 4, but
-declares schema 1 deliberately. Because it uses only `auth_provider` and
+v0.1.7 and v0.1.8 build against the CPA v7.2.144 SDK and declare schema 1.
+Because the plugin uses only `auth_provider` and
 `management_api` — unchanged since schema 1 — it accepts any host at schema 1 or
 above and returns a schema-1 contract. Hosts newer than v7.2.144 are
 forward-tolerated through that same subset, but are unverified and gain no new

@@ -12,11 +12,11 @@ dynamic-library plugin that:
 - parses or persists authentication files;
 - handles credentials or other bounded upstream responses.
 
-The current verified baseline is `codex-pat v0.1.7`, built with the CPA
-`v7.2.144` SDK, native ABI v1, and plugin RPC schema v1. The same contract is
-verified on CPA host schemas 1 (`v7.2.102`), 2 (`v7.2.103`), 3 (`v7.2.129`),
-and 4 (`v7.2.144`). `codex-pat v0.1.6` remains the preceding release for
-schema-2 hosts; v0.1.7 restores the schema-1 compatibility subset.
+The release baseline for `codex-pat v0.1.8` is the CPA `v7.2.144` SDK,
+native ABI v1, and plugin RPC schema v1. The native release smoke uses CPA
+`v7.2.144` (schema 4). v0.1.7 restored the schema-1 subset and was also tested
+against host versions `v7.2.102`, `v7.2.103`, and `v7.2.129` on its supported
+platforms.
 
 ### 2. Signatures
 
@@ -71,7 +71,7 @@ Content-Security-Policy: ...; frame-ancestors 'self'
 - Treat lifecycle request `schema_version` as the host schema being offered and
   registration response `schema_version` as the plugin contract selected for
   that registration. They are not required to be equal.
-- For v0.1.7, accept host schema 1 or newer and return plugin schema 1 for all
+- Since v0.1.7, accept host schema 1 or newer and return plugin schema 1 for all
   accepted hosts. The plugin only relies on the stable auth-provider and
   management-api subset; this numeric forward tolerance is not a claim that
   future host capabilities have been audited. Reject missing/zero schema and
@@ -111,11 +111,8 @@ Content-Security-Policy: ...; frame-ancestors 'self'
 
 #### Release toolchain compatibility
 
-- The exact v0.1.7 release set is Linux amd64, Linux arm64, Darwin arm64, and
-  Windows amd64. Darwin/amd64 is unsupported for this Go `c-shared` plugin and
-  must be rejected by build/release validation rather than emitted as an
-  untested asset. This is a project support boundary, not a claim that CPA or
-  non-Go dylibs do not support Intel macOS.
+- The release set beginning with v0.1.8 is amd64 and arm64 for Linux, Darwin,
+  and Windows. Build and smoke-test each package on a matching native runner.
 - A Go `c-shared` plugin is loaded into CPA's Go process and crosses cgo/runtime
   boundaries. Pin the release workflow to the exact Go patch version recorded
   by `go version -m` on the official CPA binary for the supported CPA release.
@@ -140,11 +137,14 @@ Content-Security-Policy: ...; frame-ancestors 'self'
 
 #### Initialization and host-table lifetime
 
-- Treat `cliproxy_plugin_init` as the minimal first entry into a Go `c-shared`
-  runtime loaded by a Go host. It must not call back into C and must not eagerly
-  construct the dispatcher. Validate `abi_version`, `call`, and `free_buffer`
-  by reading the C-owned host table directly, publish the plugin function table,
-  retain the host pointer in synchronized state, and return.
+- The C entry point `cliproxy_plugin_init` publishes the plugin function table
+  after the Go initializer validates and retains the C-owned host table under
+  a lock. Keep the Go initializer free of nested C calls and dispatcher setup.
+- On Darwin/amd64 both Go runtimes use the same thread-local goroutine slot.
+  Run the Go initializer, plugin call and shutdown, and host call and buffer
+  release on fresh joinable pthreads. Free plugin-owned C buffers directly in C
+  from the Intel macOS function table. Joining the worker keeps all borrowed
+  call arguments and buffers live through the synchronous ABI operation.
 - Initialize the dispatcher lazily on the first actual plugin call. Registration
   must still work on that first call without requiring a host callback.
 - CPA owns the host table and keeps it alive until plugin shutdown returns.
@@ -288,7 +288,8 @@ must use HTTP(S), and must never be logged with the credential.
 | Lifecycle request JSON is malformed | Return HTTP-400 `invalid_request` with a stable redacted message |
 | Schema-v2 optional request-lifecycle capability is not implemented | Omit `request_lifecycle_plugin`; CPA must not dispatch `request.complete` to this plugin |
 | Plugin Go patch version differs from the supported CPA release binary | Reject the release candidate; rebuild every asset with CPA's exact recorded toolchain |
-| Requested release target is Darwin/amd64 or otherwise outside the exact four-target set | Reject before compilation and exclude it from archives, checksums, and public support claims |
+| Requested release target is outside the six-target set | Reject before compilation and exclude it from archives and checksums |
+| Darwin/amd64 ABI callback enters a second Go runtime directly | Use a fresh native thread for the receiving runtime |
 | Bind-mounted manylinux build cannot obtain VCS status | Build with `-buildvcs=false`; do not weaken Git ownership globally inside the image |
 | First `cliproxy_plugin_init` entry performs a nested Go-to-C call or eagerly constructs the dispatcher | Reject the release candidate; keep init to direct table validation/storage and defer dispatcher construction to the first plugin call |
 | Shutdown races an active host callback | The host-state write lock waits for callback, copy, and host-buffer free to finish before clearing the host pointer and returning |
@@ -329,10 +330,10 @@ must use HTTP(S), and must never be logged with the credential.
 - Good: release compatibility smoke checks require the expected exact tag and a
   clean CPA worktree before compiling the test binary.
 - Good: inspect the official CPA binary with `go version -m`, pin that exact Go
-  patch version for all four assets, and pass `-buildvcs=false` in the
+  patch version for all six assets, and pass `-buildvcs=false` in the
   bind-mounted manylinux build.
-- Good: aggregate exactly Linux amd64/arm64, Darwin arm64, and Windows amd64;
-  reject an unexpected Darwin/amd64 archive even when it compiles.
+- Good: aggregate all six native archives and require checksum coverage for
+  every archive.
 - Good: init validates the C host table without a nested C call, stores it under
   a lock, publishes the four-entry ABI, and leaves dispatcher construction to
   the first real plugin call.
@@ -417,16 +418,15 @@ must use HTTP(S), and must never be logged with the credential.
   exported symbols. Inspect the supported official CPA binary's Go build
   metadata, require the release workflow's exact toolchain pin to match it, and
   verify a `-buildvcs=false` release library contains no `vcs.*` build-info
-  fields. Require exactly four archives and matching checksum entries; an extra
+  fields. Require exactly six archives and matching checksum entries; an extra
   unsupported platform archive is a failure.
 - ABI initialization: keep a focused lazy-dispatcher regression, inspect the
   generated init symbol when this boundary changes, and require native CPA
   load/register smoke on every release runner. After registration, call the
   authenticated status route and require a real `host.auth.list` callback to
   return an explicit empty account list without creating a credential file.
-  The init call graph must not contain a generated C helper or eager dispatcher
-  initialization; the library must retain exactly the four required public
-  plugin exports.
+  The Go initializer must avoid nested C calls and eager dispatcher setup.
+  The library must retain the four required public plugin exports.
 - Windows artifact: native-link through the safe temporary basename, rename to
   the versioned path, then run PE export inspection and package the renamed DLL
   as the single root-level `codex-pat.dll` entry.

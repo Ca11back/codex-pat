@@ -25,12 +25,11 @@
 | 平台 | 发布 zip 中的动态库 |
 |---|---|
 | Linux amd64、arm64 | `codex-pat.so` |
-| macOS arm64 | `codex-pat.dylib` |
-| Windows amd64 | `codex-pat.dll` |
+| macOS amd64、arm64 | `codex-pat.dylib` |
+| Windows amd64、arm64 | `codex-pat.dll` |
 
-不支持 macOS Intel：Go 不支持在 Darwin amd64 上由进程内 Go host 加载 Go
-`c-shared` 库。Linux 产物以 manylinux2014 为基线，发布校验会拒绝任何依赖高于
-GLIBC 2.17 符号的产物。
+从 v0.1.8 起提供 Intel macOS 和 Windows ARM64 安装包。Linux 产物以
+manylinux2014 为基线，发布校验要求 GLIBC 符号版本不高于 2.17。
 
 ## 安装
 
@@ -55,7 +54,7 @@ GLIBC 2.17 符号的产物。
        codex-pat:
          enabled: true
          store:
-           version: "0.1.7"
+           version: "0.1.8"
    ```
 
 4. **确认注册。** 启动 CPA，在 `GET /v0/management/plugins` 中确认 `codex-pat`
@@ -129,13 +128,14 @@ v7.2.103 上验证）。不要手动创建 `codex-pat-` 前缀的文件；已存
 
 | 插件版本 | 已验证的 CPA 版本 | Host schema | 声明的 schema |
 |---|---|---:|---:|
-| `v0.1.7`（当前） | `v7.2.102`、`v7.2.103`、`v7.2.129`、`v7.2.144` | 1–4 | 1 |
+| `v0.1.8`（当前） | `v7.2.144`，覆盖六个平台 | 4 | 1 |
+| `v0.1.7` | `v7.2.102`、`v7.2.103`、`v7.2.129`、`v7.2.144` | 1–4 | 1 |
 | `v0.1.6` | `v7.2.103`、`v7.2.129` | 2、3 | 2 |
 | `v0.1.5` | `v7.2.103` | 2 | 2 |
 | `v0.1.4` | `v7.2.102` | 1 | 1 |
 
-v0.1.7 基于 CPA v7.2.144 SDK 构建，该 SDK 最新 RPC schema 为 4，但插件有意
-声明 schema 1。由于它只使用自 schema 1 起未变过的 `auth_provider` 和
+v0.1.7 和 v0.1.8 基于 CPA v7.2.144 SDK 构建，并声明 schema 1。
+插件只使用自 schema 1 起未变过的 `auth_provider` 和
 `management_api`，因此接受任何 schema ≥ 1 的 host，并返回 schema-1 契约。比
 v7.2.144 更新的 host 会基于同一组接口向前容忍，但未经验证，也不会因此获得新
 能力。

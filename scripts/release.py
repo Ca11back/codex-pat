@@ -25,8 +25,10 @@ EXPORTS = (
 TARGETS = (
     ("linux", "amd64", ".so"),
     ("linux", "arm64", ".so"),
+    ("darwin", "amd64", ".dylib"),
     ("darwin", "arm64", ".dylib"),
     ("windows", "amd64", ".dll"),
+    ("windows", "arm64", ".dll"),
 )
 
 
@@ -97,6 +99,8 @@ def verify_library(path: Path, goos: str, goarch: str, glibc_max: str | None) ->
         symbols = run_output(["nm", "-D", "--defined-only", str(path)])
     elif goos == "darwin":
         symbols = run_output(["nm", "-gU", str(path)])
+    elif goarch == "arm64":
+        symbols = run_output(["llvm-objdump", "-p", str(path)])
     else:
         symbols = run_output(["objdump", "-p", str(path)])
     missing = [symbol for symbol in EXPORTS if symbol not in symbols]
@@ -137,6 +141,8 @@ def package(version: str, goos: str, goarch: str, library: Path, output: Path) -
 
 
 def verify_archive(path: Path, expected_library: str) -> None:
+    if not path.is_file():
+        fail(f"missing release archive: {path}")
     try:
         with zipfile.ZipFile(path) as archive:
             entries = archive.infolist()
@@ -202,7 +208,7 @@ def verify_release(version: str, directory: Path) -> None:
     for name in expected_names:
         if sha256(directory / name) != parsed[name]:
             fail(f"checksum mismatch: {name}")
-    print(f"verified four archives and checksums in {directory}")
+    print(f"verified {len(expected_names)} archives and checksums in {directory}")
 
 
 def parser() -> argparse.ArgumentParser:
