@@ -21,17 +21,17 @@ class ReleaseSetTest(unittest.TestCase):
         self.assertIn(f"VERSION ?= {self.version}", makefile)
         self.assertIn(f"default: {self.version}", workflow)
         self.assertIn(
-            "github.com/router-for-me/CLIProxyAPI/v7 v7.2.144",
+            "github.com/router-for-me/CLIProxyAPI/v8 v8.1.2",
             module,
         )
-        self.assertIn("CPA_VERSION: v7.2.144", workflow)
-        self.assertEqual(workflow.count("CLIProxyAPI_7.2.144_"), 6)
+        self.assertIn("CPA_VERSION: v8.1.2", workflow)
+        self.assertEqual(workflow.count("CLIProxyAPI_8.1.2_"), 6)
         for runner, archive in (
             ("macos-15-intel", "darwin_amd64.tar.gz"),
             ("windows-11-arm", "windows_aarch64.zip"),
         ):
             self.assertIn(
-                f"runner: {runner}\n            cpa_asset: CLIProxyAPI_7.2.144_{archive}",
+                f"runner: {runner}\n            cpa_asset: CLIProxyAPI_8.1.2_{archive}",
                 workflow,
             )
         self.assertNotIn("CPA_SCHEMA2", workflow)

@@ -34,27 +34,27 @@ jobs:
           - goos: linux
             goarch: amd64
             runner: ubuntu-24.04
-            cpa_asset: CLIProxyAPI_7.2.144_linux_amd64.tar.gz
+            cpa_asset: CLIProxyAPI_8.1.2_linux_amd64.tar.gz
           - goos: linux
             goarch: arm64
             runner: ubuntu-24.04-arm
-            cpa_asset: CLIProxyAPI_7.2.144_linux_aarch64.tar.gz
+            cpa_asset: CLIProxyAPI_8.1.2_linux_aarch64.tar.gz
           - goos: darwin
             goarch: amd64
             runner: macos-15-intel
-            cpa_asset: CLIProxyAPI_7.2.144_darwin_amd64.tar.gz
+            cpa_asset: CLIProxyAPI_8.1.2_darwin_amd64.tar.gz
           - goos: darwin
             goarch: arm64
             runner: macos-15
-            cpa_asset: CLIProxyAPI_7.2.144_darwin_aarch64.tar.gz
+            cpa_asset: CLIProxyAPI_8.1.2_darwin_aarch64.tar.gz
           - goos: windows
             goarch: amd64
             runner: windows-2025
-            cpa_asset: CLIProxyAPI_7.2.144_windows_amd64.zip
+            cpa_asset: CLIProxyAPI_8.1.2_windows_amd64.zip
           - goos: windows
             goarch: arm64
             runner: windows-11-arm
-            cpa_asset: CLIProxyAPI_7.2.144_windows_aarch64.zip
+            cpa_asset: CLIProxyAPI_8.1.2_windows_aarch64.zip
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -62,13 +62,13 @@ jobs:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
       CGO_ENABLED: "1"
-      CPA_VERSION: v7.2.144
+      CPA_VERSION: v8.1.2
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.26.4
+          go-version: 1.26.10
           architecture: ${{ matrix.goarch == 'amd64' && 'x64' || 'arm64' }}
           cache: true
 
@@ -173,7 +173,7 @@ jobs:
           gh release download $env:CPA_VERSION --repo router-for-me/CLIProxyAPI --pattern $env:CPA_ASSET --dir cpa
           Expand-Archive -Path (Join-Path cpa $env:CPA_ASSET) -DestinationPath cpa/unpacked
           $cpaBinary = Get-ChildItem cpa/unpacked -Recurse -File -Filter cli-proxy-api.exe | Select-Object -First 1
-          if (-not $cpaBinary) { throw 'CPA v7.2.144 executable not found in release archive' }
+          if (-not $cpaBinary) { throw 'CPA v8.1.2 executable not found in release archive' }
           Add-Content $env:GITHUB_ENV "CPA_BIN=$($cpaBinary.FullName)"
 
       - name: Verify official CPA Go toolchains
@@ -181,8 +181,8 @@ jobs:
         run: |
           build_info="$(go version -m "${CPA_BIN}")"
           printf '%s\n' "${build_info}"
-          if ! grep -Eq ': go1\.26\.4$' <<<"${build_info}"; then
-            echo "official CPA ${CPA_VERSION} was not built with Go 1.26.4" >&2
+          if ! grep -Eq ': go1\.26\.10$' <<<"${build_info}"; then
+            echo "official CPA ${CPA_VERSION} was not built with Go 1.26.10" >&2
             exit 1
           fi
 
@@ -294,7 +294,7 @@ jobs:
           gh release create "v${VERSION}" \
             release/codex-pat_*.zip release/checksums.txt \
             --target "${GITHUB_SHA}" --title "codex-pat v${VERSION}" \
-            --notes "Adds Intel macOS (darwin/amd64) and Windows ARM64, completing the six-platform release matrix. On Intel macOS, calls between the CPA and plugin Go runtimes run on separate native threads. All six builds passed native load, registration, and host callback tests with official CPA v7.2.144. The plugin declares RPC schema v1 and accepts host schemas 1 and newer for the auth-provider and management-api interfaces." \
+            --notes "Adds Intel macOS (darwin/amd64) and Windows ARM64, completing the six-platform release matrix. On Intel macOS, calls between the CPA and plugin Go runtimes run on separate native threads. All six builds passed native load, registration, and host callback tests with official CPA v8.1.2. The plugin declares RPC schema v1 and accepts host schemas 1 and newer for the auth-provider and management-api interfaces." \
             --generate-notes --draft
           gh release view "v${VERSION}" --json isDraft,targetCommitish,assets > release/remote-release.json
           python3 - <<'PY'

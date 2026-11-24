@@ -25,7 +25,7 @@ Consequences worth stating up front:
 
 ## Requirements
 
-- A CPA host of schema 1 or newer. See [Version compatibility](#version-compatibility).
+- CPA v8.1.2 for v0.1.8. For previous releases, see [Version compatibility](#version-compatibility).
 - A release library matching CPA's operating system **and** architecture.
 
 | Platform | Library shipped in the release zip |
@@ -153,27 +153,22 @@ aside before importing.
 
 | Plugin | CPA versions verified | Host schema | Schema declared |
 |---|---|---:|---:|
-| `v0.1.8` (current) | `v7.2.144` on all six platforms | 4 | 1 |
+| `v0.1.8` (current) | `v8.1.2` on all six platforms | 10 | 1 |
 | `v0.1.7` | `v7.2.102`, `v7.2.103`, `v7.2.129`, `v7.2.144` | 1–4 | 1 |
 | `v0.1.6` | `v7.2.103`, `v7.2.129` | 2, 3 | 2 |
 | `v0.1.5` | `v7.2.103` | 2 | 2 |
 | `v0.1.4` | `v7.2.102` | 1 | 1 |
 
-v0.1.7 and v0.1.8 build against the CPA v7.2.144 SDK and declare schema 1.
-Because the plugin uses only `auth_provider` and
-`management_api` — unchanged since schema 1 — it accepts any host at schema 1 or
-above and returns a schema-1 contract. Hosts newer than v7.2.144 are
-forward-tolerated through that same subset, but are unverified and gain no new
-capabilities from it.
+v0.1.8 builds against the CPA v8.1.2 SDK. It declares RPC schema 1 for its
+`auth_provider` and `management_api` capabilities and accepts host schema
+values of 1 or greater. The compatibility table records the official CPA
+releases tested with each plugin version.
 
 The optional schema-2 lifecycle (request completion, active-request
 termination) is neither implemented nor advertised.
 
 A platform's zip is published only after a native runner builds it and a real
-CPA v7.2.144 host loads it, registers it, and completes a host callback. Older
-hosts are covered by the compatibility audit and unit contract tests, not by
-the release smoke test. Sharing ABI v1 with some other CPA build does not imply
-compatibility.
+CPA v8.1.2 host loads it, registers it, and completes a host callback.
 
 ## Upgrade, rollback, removal
 
@@ -203,7 +198,7 @@ plugin is still enabled*, then disable it, restart CPA, and delete the library.
 ## Development
 
 Requires Go 1.26, CGO, and a native C toolchain. Release artifacts pin the
-exact Go 1.26.4 toolchain recorded in the official CPA v7.2.144 binary.
+exact Go 1.26.10 toolchain recorded in the official CPA v8.1.2 binary.
 
 ```bash
 make check
@@ -218,7 +213,7 @@ zero values.
 make integration CPA_SOURCE=../CLIProxyAPI
 ```
 
-Runs the full lifecycle with a fake PAT against a clean CPA v7.2.144 source
+Runs the full lifecycle with a fake PAT against a clean CPA v8.1.2 source
 checkout on Linux/amd64. It contacts neither OpenAI nor any real account.
 
 Release maintainers additionally use `make package` for the current native

@@ -56,7 +56,7 @@ type statusEnvelope struct {
 
 func main() {
 	var settings options
-	flag.StringVar(&settings.cpaBinary, "cpa", "", "path to a native CPA v7.2.144 executable")
+	flag.StringVar(&settings.cpaBinary, "cpa", "", "path to a native CPA executable")
 	flag.StringVar(&settings.plugin, "plugin", "", "path to the native codex-pat library")
 	flag.StringVar(&settings.version, "version", "", "expected dotted plugin version")
 	flag.Parse()
@@ -122,6 +122,9 @@ remote-management:
   disable-control-panel: true
   disable-auto-update-panel: true
 auth-dir: %s
+server:
+  kv-store:
+    path: "kv.db"
 debug: false
 logging-to-file: false
 plugins:

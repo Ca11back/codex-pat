@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginabi"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 
 	"oaipat/internal/pat"
 )
@@ -43,8 +43,8 @@ func TestCPAContractVersions(t *testing.T) {
 	if pluginabi.ABIVersion != 1 {
 		t.Fatalf("ABI version = %d, want 1", pluginabi.ABIVersion)
 	}
-	if pluginabi.SchemaVersion != 4 {
-		t.Fatalf("SDK schema version = %d, want 4", pluginabi.SchemaVersion)
+	if pluginabi.SchemaVersion != 10 {
+		t.Fatalf("SDK schema version = %d, want 10", pluginabi.SchemaVersion)
 	}
 	if pluginSchemaVersion != 1 {
 		t.Fatalf("PAT plugin schema version = %d, want 1", pluginSchemaVersion)
@@ -57,7 +57,7 @@ func TestCPAContractVersions(t *testing.T) {
 func TestLifecycleMethodsAcceptHostSchemasFromSchemaOneAndReturnPluginSchemaOne(t *testing.T) {
 	dispatcher := NewDispatcher("test", fakeManagement{})
 	for _, method := range []string{pluginabi.MethodPluginRegister, pluginabi.MethodPluginReconfigure} {
-		for _, hostSchema := range []uint32{1, 2, 3, 4, 99} {
+		for _, hostSchema := range []uint32{1, 2, 3, 4, pluginabi.SchemaVersion, 99} {
 			t.Run(method+"/host-schema-"+strconv.FormatUint(uint64(hostSchema), 10), func(t *testing.T) {
 				request := []byte(`{"schema_version":` + strconv.FormatUint(uint64(hostSchema), 10) + `}`)
 				envelope := decodeTestEnvelope(t, dispatcher.Dispatch(method, request))

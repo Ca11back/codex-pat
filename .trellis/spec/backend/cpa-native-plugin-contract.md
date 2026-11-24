@@ -12,9 +12,9 @@ dynamic-library plugin that:
 - parses or persists authentication files;
 - handles credentials or other bounded upstream responses.
 
-The release baseline for `codex-pat v0.1.8` is the CPA `v7.2.144` SDK,
+The release baseline for `codex-pat v0.1.8` is the CPA `v8.1.2` SDK,
 native ABI v1, and plugin RPC schema v1. The native release smoke uses CPA
-`v7.2.144` (schema 4). v0.1.7 restored the schema-1 subset and was also tested
+`v8.1.2` (schema 10). v0.1.7 restored the schema-1 subset and was also tested
 against host versions `v7.2.102`, `v7.2.103`, and `v7.2.129` on its supported
 platforms.
 
@@ -388,8 +388,8 @@ must use HTTP(S), and must never be logged with the credential.
   preservation, cross-user workspace isolation, third-party filename isolation,
   stale-watcher repair, secure
   rewrite, symlink rejection, bounded stream reads, and redaction.
-- Registration unit: assert ABI 1, SDK schema 4, and independent PAT plugin
-  schema 1; host schemas 1, 2, 3, 4, and a larger future value succeed for both
+- Registration unit: assert ABI 1, SDK schema 10, and independent PAT plugin
+  schema 1; host schemas 1, 2, 3, 4, 10, and a larger future value succeed for both
   register and reconfigure; response schema 1; exactly two capabilities; stable
   zero/missing-schema rejection; and stable malformed-JSON rejection.
 - Management: every authenticated route must return 401 without a key; static
@@ -398,7 +398,7 @@ must use HTTP(S), and must never be logged with the credential.
   `frame-ancestors 'self'`.
 - Integration: require each source-based CPA target to have the expected exact
   tag and a clean worktree. Build one shared library, then load/register that
-  same artifact on the current verified CPA v7.2.144/schema-v4 host and complete
+  same artifact on the current verified CPA v8.1.2/schema-10 host and complete
   a real host callback. Historical host schemas are covered by the compatibility
   audit and registration unit tests. Continue with the
   full target-CPA lifecycle: mock upstream validation, assert `0600`, replacement/invalidation,
